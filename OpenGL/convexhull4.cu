@@ -28,14 +28,14 @@ __device__ short g(Point *d_hood, short i, short j, short start, short d)
 	int atstart, atend;
 	int isleft;
 	if (d_hood[j].x > 1) /* REMOTE */
-		return HIGH;
+		return RIGHT;
 	p = d_hood[i];
 	q = d_hood[j];
 	atend = (j == start + 2 * d - 1 || d_hood[j + 1].x > 1.0);
 	q_next = d_hood[j + 1 - atend];
 	q_next.y -= (float)atend;
 	if (Orientation(p, q, q_next) == -1)
-		return LOW;
+		return LEFT;
 	atstart = (j == start + d);
 	q_prev = d_hood[j + atstart - 1];
 	q_prev.y -= (float)atstart;
@@ -43,7 +43,7 @@ __device__ short g(Point *d_hood, short i, short j, short start, short d)
 		isleft = 1;
 	else
 		isleft = 0;
-	return HIGH * isleft + EQUAL * (1 - isleft);
+	return isleft;
 }
 
 __device__ short f(Point *d_hood, short i, short j, short start, short d)
@@ -52,14 +52,14 @@ __device__ short f(Point *d_hood, short i, short j, short start, short d)
 	int atstart, atend;
 	int isleft;
 	if (d_hood[i].x > 1) /* REMOTE */
-		return HIGH;
+		return RIGHT;
 	p = d_hood[i];
 	q = d_hood[j];
 	atend = (i == start + d - 1 || d_hood[i + 1].x > 1);
 	p_next = d_hood[i + 1 - atend];
 	p_next.y -= (float)atend;
 	if (Orientation(p, q, p_next) == -1)
-		return LOW;
+		return LEFT;
 	atstart = (i == start);
 	p_prev = d_hood[i + atstart - 1];
 	p_prev.y -= (float)atstart;
@@ -67,7 +67,7 @@ __device__ short f(Point *d_hood, short i, short j, short start, short d)
 		isleft = 1;
 	else
 		isleft = 0;
-	return HIGH * isleft + EQUAL * (1 - isleft);
+	return isleft;
 }
 
 __global__ void match_and_merge(Point *d_hood, Point *d_newhood, short *d_scratch)
@@ -93,8 +93,8 @@ __global__ void match_and_merge(Point *d_hood, Point *d_newhood, short *d_scratc
 		* unique interval of H(Q) touching the
 		* tangent from hood[i].
 		*/
-		if (g(d_hood, i, j, start, d) <= EQUAL &&
-			(y == d2 - 1 || d_hood[j + d1].x > 1.0 || g(d_hood, i, j + d1, start, d) == HIGH))
+		if (g(d_hood, i, j, start, d) < RIGHT &&
+			(y == d2 - 1 || d_hood[j + d1].x > 1.0 || g(d_hood, i, j + d1, start, d) == RIGHT))
 			d_scratch[start + x] = j;
 	}
 	__syncthreads();
