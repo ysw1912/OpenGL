@@ -22,52 +22,40 @@ void show_current_hoods(FILE* out, Point* h_hood, int count, int d)
 	fprintf(out, "\n");
 }
 
-__device__ short g(Point *d_hood, short i, short j, short start, short d)
+__device__
+int16_t g(Point *d_hood, int16_t i, int16_t j, int16_t start, int16_t d)
 {
-	Point p, q, q_next, q_prev;
-	int atstart, atend;
-	int isleft;
-	if (d_hood[j].x > 1) /* REMOTE */
+	Point p = d_hood[i], q = d_hood[j];
+	if (q.x > 1.0F) /* REMOTE */
 		return RIGHT;
-	p = d_hood[i];
-	q = d_hood[j];
-	atend = (j == start + 2 * d - 1 || d_hood[j + 1].x > 1.0);
-	q_next = d_hood[j + 1 - atend];
+	int atend = (j == start + 2 * d - 1 || d_hood[j + 1].x > 1.0F);
+	Point q_next = d_hood[j + 1 - atend];
 	q_next.y -= (float)atend;
-	if (Orientation(p, q, q_next) == -1)
+	if (Orientation(p, q, q_next) == LEFT)
 		return LEFT;
-	atstart = (j == start + d);
-	q_prev = d_hood[j + atstart - 1];
+	int atstart = (j == start + d);
+	Point q_prev = d_hood[j + atstart - 1];
 	q_prev.y -= (float)atstart;
-	if (Orientation(p, q, q_prev) == -1)
-		isleft = 1;
-	else
-		isleft = 0;
-	return isleft;
+	return RIGHT * (Orientation(p, q, q_prev) == LEFT);
+	// return (Orientation(p, q, q_next) == LEFT) * LEFT + RIGHT * (Orientation(p, q, q_prev) == LEFT);
 }
 
-__device__ short f(Point *d_hood, short i, short j, short start, short d)
+__device__
+int16_t f(Point *d_hood, int16_t i, int16_t j, int16_t start, int16_t d)
 {
-	Point p, q, p_next, p_prev;
-	int atstart, atend;
-	int isleft;
-	if (d_hood[i].x > 1) /* REMOTE */
+	Point p = d_hood[i], q = d_hood[j];
+	if (p.x > 1.0F) /* REMOTE */
 		return RIGHT;
-	p = d_hood[i];
-	q = d_hood[j];
-	atend = (i == start + d - 1 || d_hood[i + 1].x > 1);
-	p_next = d_hood[i + 1 - atend];
+	int atend = (i == start + d - 1 || d_hood[i + 1].x > 1.0F);
+	Point p_next = d_hood[i + 1 - atend];
 	p_next.y -= (float)atend;
-	if (Orientation(p, q, p_next) == -1)
+	if (Orientation(p, q, p_next) == LEFT)
 		return LEFT;
-	atstart = (i == start);
-	p_prev = d_hood[i + atstart - 1];
+	int atstart = (i == start);
+	Point p_prev = d_hood[i + atstart - 1];
 	p_prev.y -= (float)atstart;
-	if (Orientation(p, q, p_prev) == -1)
-		isleft = 1;
-	else
-		isleft = 0;
-	return isleft;
+	return RIGHT * (Orientation(p, q, p_prev) == LEFT);
+	// return (Orientation(p, q, p_next) == LEFT) * LEFT + RIGHT * (Orientation(p, q, p_prev) == LEFT);
 }
 
 __global__ void match_and_merge(Point *d_hood, Point *d_newhood, short *d_scratch)
@@ -84,9 +72,9 @@ __global__ void match_and_merge(Point *d_hood, Point *d_newhood, short *d_scratc
 	d_scratch[start + idx] = -1;
 	d_scratch[start + idx + d] = -1;
 	__syncthreads();
-	i = start + d2 * x;
 
-	if (d_hood[i].x <= 1.0) {	/* not REMOTE */
+	i = start + d2 * x;
+	if (d_hood[i].x <= 1.0F) {	/* not REMOTE */
 		j = start + d + d1 * y;
 		/*
 		* The condition below should identify the
@@ -94,10 +82,20 @@ __global__ void match_and_merge(Point *d_hood, Point *d_newhood, short *d_scratc
 		* tangent from hood[i].
 		*/
 		if (g(d_hood, i, j, start, d) < RIGHT &&
-			(y == d2 - 1 || d_hood[j + d1].x > 1.0 || g(d_hood, i, j + d1, start, d) == RIGHT))
+			(y == d2 - 1 || d_hood[j + d1].x > 1.0F || g(d_hood, i, j + d1, start, d) == RIGHT))
 			d_scratch[start + x] = j;
 	}
 	__syncthreads();
+
+	if (d_hood[i].x <= 1.0F) {
+		j = d_scratch[start + x] + y;
+		if (g(d_hood, i, j, start, d) == 0)
+			d_scratch[start + d + x] = j;
+		else if (d2 < d1 && g(d_hood, i, j + d2, start, d) == 0)
+			d_scratch[start + d + x] = j + d2;
+	}
+	__syncthreads();
+	// 对于每个采样点p，计算出H(Q)上对应的切角q
 }
 
 void ConvexHull4(vector<Point> points, vector<Point>& hull)

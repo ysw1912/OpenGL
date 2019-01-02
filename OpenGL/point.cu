@@ -27,12 +27,9 @@ __host__ __device__
 int Orientation(const Point& p, const Point& q, const Point& r)
 {
 	float v = (q.y - p.y) * (r.x - q.x) - (r.y - q.y) * (q.x - p.x);
-	if (v == 0)
-		return 0;
-	else if (v > 0)
-		return LEFT;
-	else
-		return RIGHT;
+	// v > 0 则 LEFT
+	// v < 0 则 RIGHT
+	return LEFT * (v > 0) + RIGHT * (v < 0);
 }
 
 // 交换两个点
