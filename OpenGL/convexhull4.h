@@ -12,9 +12,4 @@
 
 using std::vector;
 
-__device__ void make_remote(Point* p);
-void show_current_hoods(FILE* out, Point* h_hood, int count, int d);
-
-__global__ void match_and_merge(Point *d_hood, Point *d_newhood, short *d_scratch);
-
-void ConvexHull4(vector<Point> points, vector<Point>& hull);
+void ConvexHull4(vector<Point>& points, vector<Point>& hull);
